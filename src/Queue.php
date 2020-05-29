@@ -12,6 +12,10 @@ class Queue {
 
 	const PREFIX = 'tasks_queue';
 
+	const FIVE_MIN = 300;
+	const TEN_MIN = 600;
+	const FIFTEEN_MIN = 900;
+
 	/**
 	 * @var \SergeLiatko\TasksQueue\Queue $instance
 	 */
@@ -42,16 +46,29 @@ class Queue {
 	}
 
 	/**
-	 * @param callable $job
-	 * @param array    $args
-	 * @param string   $queue
+	 * @param callable    $job
+	 * @param array|null  $args
+	 * @param string|null $queue
+	 * @param int|null    $offset
 	 *
 	 * @return bool
 	 */
-	public static function add( callable $job, array $args = array(), string $queue = '' ) {
+	public static function add( callable $job, ?array $args = array(), ?string $queue = '', ?int $offset = 0 ): bool {
 		$instance = self::getInstance();
 
-		return $instance->schedule( $job, $args, $queue );
+		return $instance->schedule( $job, $args, $queue, $offset );
+	}
+
+	/**
+	 * @param callable    $job
+	 * @param array|null  $args
+	 * @param string|null $queue
+	 * @param int|null    $offset
+	 *
+	 * @return bool
+	 */
+	public static function addLater( callable $job, ?array $args = array(), ?string $queue = '', ?int $offset = self::TEN_MIN ): bool {
+		return self::add( $job, $args, $queue, $offset );
 	}
 
 	/**
@@ -60,7 +77,7 @@ class Queue {
 	 *
 	 * @return \SergeLiatko\TasksQueue\Queue
 	 */
-	public static function getInstance( array $queues = array(), string $default = 'default' ) {
+	public static function getInstance( array $queues = array(), string $default = 'default' ): Queue {
 		if ( ! self::$instance instanceof Queue ) {
 			if ( ! in_array( $default, $queues ) ) {
 				$queues[] = $default;
@@ -74,7 +91,7 @@ class Queue {
 	/**
 	 * @param \SergeLiatko\TasksQueue\Queue $instance
 	 */
-	protected static function setInstance( Queue $instance ) {
+	protected static function setInstance( Queue $instance ): void {
 		self::$instance = $instance;
 	}
 
@@ -87,17 +104,18 @@ class Queue {
 	}
 
 	/**
-	 * @param callable $job
-	 * @param array    $args
-	 * @param string   $queue
+	 * @param callable    $job
+	 * @param array|null  $args
+	 * @param string|null $queue
+	 * @param int|null    $offset
 	 *
 	 * @return bool
 	 */
-	public function schedule( callable $job, array $args = array(), string $queue = '' ) {
+	public function schedule( callable $job, ?array $args = array(), ?string $queue = '', ?int $offset = 0 ): bool {
 		$queue  = $this->validateQueue( $queue );
 		$params = array( $job, $args );
 		if ( false === wp_next_scheduled( $queue, $params ) ) {
-			return wp_schedule_single_event( time(), $queue, $params );
+			return wp_schedule_single_event( time() + $offset, $queue, $params );
 		}
 
 		return false;
@@ -147,7 +165,7 @@ class Queue {
 	 *
 	 * @return string
 	 */
-	protected function prefix( $string = '' ) {
+	protected function prefix( $string = '' ): string {
 		return sprintf( '%1$s_%2$s', self::PREFIX, $string );
 	}
 
@@ -156,7 +174,7 @@ class Queue {
 	 *
 	 * @return string
 	 */
-	protected function validateQueue( string $queue ) {
+	protected function validateQueue( string $queue ): string {
 		return in_array( $queue = $this->prefix( $queue ), $this->getQueues() ) ?
 			$queue
 			: $this->getDefault();
