@@ -12,8 +12,8 @@ class Queue {
 
 	const PREFIX = 'tasks_queue';
 
-	const FIVE_MIN = 300;
-	const TEN_MIN = 600;
+	const FIVE_MIN    = 300;
+	const TEN_MIN     = 600;
 	const FIFTEEN_MIN = 900;
 
 	/**
@@ -78,8 +78,8 @@ class Queue {
 	 * @return \SergeLiatko\TasksQueue\Queue
 	 */
 	public static function getInstance( array $queues = array(), string $default = 'default' ): Queue {
-		if ( ! self::$instance instanceof Queue ) {
-			if ( ! in_array( $default, $queues ) ) {
+		if ( !self::$instance instanceof Queue ) {
+			if ( !in_array( $default, $queues ) ) {
 				$queues[] = $default;
 			}
 			self::setInstance( new self( $queues, $default ) );
@@ -112,13 +112,47 @@ class Queue {
 	 * @return bool
 	 */
 	public function schedule( callable $job, ?array $args = array(), ?string $queue = '', ?int $offset = 0 ): bool {
+		$queue     = $this->validateQueue( $queue );
+		$params    = array( $job, $args );
+		$timestamp = absint( time() + $offset );
+		if ( false === ( $current_timestamp = wp_next_scheduled( $queue, $params ) ) ) {
+			return wp_schedule_single_event( $timestamp, $queue, $params );
+		}
+		wp_unschedule_event( $current_timestamp, $queue, $params );
+
+		return wp_schedule_single_event( $timestamp + self::TEN_MIN + 30, $queue, $params );
+	}
+
+	/**
+	 * @param callable    $job
+	 * @param array|null  $args
+	 * @param string|null $queue
+	 *
+	 * @return false|int
+	 */
+	public function get_next_scheduled( callable $job, ?array $args = array(), ?string $queue = '' ) {
 		$queue  = $this->validateQueue( $queue );
 		$params = array( $job, $args );
-		if ( false === wp_next_scheduled( $queue, $params ) ) {
-			return wp_schedule_single_event( time() + $offset, $queue, $params );
-		}
 
-		return false;
+		return wp_next_scheduled( $queue, $params );
+	}
+
+	/**
+	 * @param callable    $job
+	 * @param array|null  $args
+	 * @param string|null $queue
+	 *
+	 * @return bool
+	 */
+	public function unschedule( callable $job, ?array $args = array(), ?string $queue = '' ): bool {
+		$queue  = $this->validateQueue( $queue );
+		$params = array( $job, $args );
+
+		return wp_unschedule_event(
+			$this->get_next_scheduled( $job, $args, $queue ),
+			$queue,
+			$params
+		);
 	}
 
 	/**
