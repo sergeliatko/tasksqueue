@@ -12,9 +12,7 @@ class Queue {
 
 	const PREFIX = 'tasks_queue';
 
-	const FIVE_MIN    = 300;
 	const TEN_MIN     = 600;
-	const FIFTEEN_MIN = 900;
 
 	/**
 	 * @var \SergeLiatko\TasksQueue\Queue $instance
@@ -115,12 +113,8 @@ class Queue {
 		$queue     = $this->validateQueue( $queue );
 		$params    = array( $job, $args );
 		$timestamp = absint( time() + $offset );
-		if ( false === ( $current_timestamp = wp_next_scheduled( $queue, $params ) ) ) {
-			return wp_schedule_single_event( $timestamp, $queue, $params );
-		}
-		wp_unschedule_event( $current_timestamp, $queue, $params );
 
-		return wp_schedule_single_event( $timestamp + self::TEN_MIN + 30, $queue, $params );
+		return wp_schedule_single_event( $timestamp, $queue, $params );
 	}
 
 	/**
